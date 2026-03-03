@@ -1,216 +1,222 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>セイレーン作戦 ENアルティメット</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-body{font-family:Arial;text-align:center;margin:20px;}
-button{padding:6px 10px;margin:4px;}
-.map-btn{background:#eee;}
-.map-btn.active{background:#4CAF50;color:white;font-weight:bold;}
-.box{margin:8px;}
-.result{margin-top:8px;}
-table{margin:10px auto;border-collapse:collapse;}
-th,td{border:1px solid #ccc;padding:5px 8px;}
-</style>
+  <meta charset="UTF-8">
+  <title>セイレーン作戦 EN統合ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 20px; background-color: #f9f9f9; }
+    .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    input { width: 80px; padding: 5px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 8px 15px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; background: #2196F3; color: white; }
+    button:hover { opacity: 0.8; }
+    .map-btn { background: #eee; color: #333; }
+    .map-btn.active { background: #4CAF50; color: white; font-weight: bold; }
+    .box { margin: 10px; display: inline-block; padding: 10px; border: 1px solid #eee; border-radius: 8px; }
+    .result { margin: 15px 0; padding: 10px; background: #f0f7ff; border-radius: 5px; font-weight: bold; }
+    canvas { max-width: 100%; margin: 20px auto; }
+    .btn-reset { background: #f44336; }
+  </style>
 </head>
 <body>
 
-<h2>セイレーン作戦 ENアルティメット</h2>
+<div class="container">
+  <h2>セイレーン作戦 EN統合ダッシュボード</h2>
 
-<h3>▼ マップ選択</h3>
-<div id="maps"></div>
-<div>消費EN/周: <span id="mapEN">-</span>　
-戦闘数: <span id="mapBattles">-</span></div>
+  <h3>▼ マップ選択</h3>
+  <div id="maps"></div>
+  <div class="result">
+    消費EN/周: <span id="mapEN">-</span>　
+    戦闘数: <span id="mapBattles">-</span>
+  </div>
 
-<h3>▼ EN入力</h3>
-周回前EN: <input type="number" id="beforeEN" value="0"><br>
-周回後EN: <input type="number" id="afterEN" value="0"><br>
-消費EN: <span id="usedEN">0</span>　
-自然回復: <span id="recoveredEN">0</span>
+  <h3>▼ 周回EN入力</h3>
+  周回前EN: <input type="number" id="beforeEN" value="0" oninput="calculate()">
+  周回後EN: <input type="number" id="afterEN" value="0" oninput="calculate()"><br>
+  <div class="result">
+    消費EN: <span id="usedEN">0</span> | 自然回復(予測): <span id="recoveredEN">0</span>
+  </div>
 
-<h3>▼ EN箱</h3>
-<div class="box">水色(20)
-<button onclick="changeBox('blue',-1)">-</button>
-<span id="blue">0</span>
-<button onclick="changeBox('blue',1)">+</button>
+  <h3>▼ EN箱</h3>
+  <div class="box">水色(20)<br>
+    <button onclick="changeBox('blue',-1)">−</button>
+    <span id="blueCount">0</span>
+    <button onclick="changeBox('blue',1)">＋</button>
+  </div>
+  <div class="box">紫(50)<br>
+    <button onclick="changeBox('purple',-1)">−</button>
+    <span id="purpleCount">0</span>
+    <button onclick="changeBox('purple',1)">＋</button>
+  </div>
+  <div class="box">金(100)<br>
+    <button onclick="changeBox('gold',-1)">−</button>
+    <span id="goldCount">0</span>
+    <button onclick="changeBox('gold',1)">＋</button>
+  </div>
+  <div class="result">
+    箱獲得EN: <span id="gainedEN">0</span> | 今回収支: <span id="balance">0</span>
+  </div>
+
+  <button onclick="addSession()">データを記録（累計に追加）</button>
+  <button class="btn-reset" onclick="resetAll()">全データリセット</button>
+
+  <h3>▼ 累計・予測</h3>
+  <div class="result">
+    累計消費: <span id="totalUsedDisp">0</span> | 累計獲得: <span id="totalGainedDisp">0</span> | 累計収支: <span id="totalBalanceDisp">0</span>
+  </div>
+  <div class="result" style="background: #fff3e0;">
+    可能周回数: <span id="possibleRuns">0</span> | 総戦闘数: <span id="totalBattles">0</span><br>
+    期待EXP: 旗艦 <span id="flagEXP">0</span> / 随伴 <span id="otherEXP">0</span>
+  </div>
+
+  <h3>▼ 日別EN統計</h3>
+  <canvas id="enChart"></canvas>
 </div>
-<div class="box">紫(50)
-<button onclick="changeBox('purple',-1)">-</button>
-<span id="purple">0</span>
-<button onclick="changeBox('purple',1)">+</button>
-</div>
-<div class="box">金(100)
-<button onclick="changeBox('gold',-1)">-</button>
-<span id="gold">0</span>
-<button onclick="changeBox('gold',1)">+</button>
-</div>
-
-<div>
-箱獲得EN: <span id="gainedEN">0</span>　
-今回収支: <span id="balance">0</span>
-</div>
-
-<button onclick="addSession()">累計に追加</button>
-<button onclick="showGraph()">表示</button>
-
-<h3>▼ 周回可能数</h3>
-可能周回数: <span id="possibleRuns">0</span>　
-総戦闘数: <span id="totalBattles">0</span>
-
-<h3>▼ ログ履歴</h3>
-<button onclick="clearLog()">履歴クリア</button>
-<table>
-<thead>
-<tr>
-<th>日時</th><th>消費</th><th>獲得</th><th>回復</th><th>収支</th>
-</tr>
-</thead>
-<tbody id="logBody"></tbody>
-</table>
-
-<canvas id="chart" width="400" height="200"></canvas>
 
 <script>
-const maps={
-1:{en:5,b:2},
-2:{en:10,b:2},
-3:{en:15,b:2},
-4:{en:20,b:5},
-5:{en:25,b:7},
-6:{en:30,b:7}
+const maps = {
+  1: { en: 5, b: 2, f: 431, o: 240 },
+  2: { en: 10, b: 2, f: 540, o: 300 },
+  3: { en: 15, b: 2, f: 647, o: 360 },
+  4: { en: 20, b: 5, f: 755, o: 420 },
+  5: { en: 25, b: 7, f: 863, o: 480 },
+  6: { en: 30, b: 7, f: 971, o: 540 }
 };
 
-let state=JSON.parse(localStorage.getItem("enUltimate"))||{
-counts:{blue:0,purple:0,gold:0},
-lastTime:null,
-logs:[],
-currentMap:null
+let state = JSON.parse(localStorage.getItem("enMerged")) || {
+  counts: { blue: 0, purple: 0, gold: 0 },
+  totalUsed: 0,
+  totalGained: 0,
+  totalBalance: 0,
+  currentMap: 1,
+  dailyStats: {}
 };
 
-function save(){localStorage.setItem("enUltimate",JSON.stringify(state));}
+let myChart = null;
 
-function createMaps(){
-for(let i=1;i<=6;i++){
-let btn=document.createElement("button");
-btn.textContent="周回"+i;
-btn.id="map"+i;
-btn.className="map-btn";
-btn.onclick=()=>selectMap(i);
-mapsDiv.appendChild(btn);
-}
-}
-createMaps();
-
-function selectMap(i){
-state.currentMap=i;
-document.querySelectorAll(".map-btn").forEach(b=>b.classList.remove("active"));
-document.getElementById("map"+i).classList.add("active");
-mapEN.textContent=maps[i].en;
-mapBattles.textContent=maps[i].b;
-calculatePossible();
-save();
+function save() {
+  localStorage.setItem("enMerged", JSON.stringify(state));
+  updateDisplay();
 }
 
-function changeBox(c,v){
-state.counts[c]+=v;
-if(state.counts[c]<0) state.counts[c]=0;
-document.getElementById(c).textContent=state.counts[c];
-calculate();
-save();
+function updateDisplay() {
+  // 箱の数更新
+  document.getElementById("blueCount").textContent = state.counts.blue;
+  document.getElementById("purpleCount").textContent = state.counts.purple;
+  document.getElementById("goldCount").textContent = state.counts.gold;
+  
+  // 累計表示更新
+  document.getElementById("totalUsedDisp").textContent = state.totalUsed;
+  document.getElementById("totalGainedDisp").textContent = state.totalGained;
+  document.getElementById("totalBalanceDisp").textContent = state.totalBalance;
+  
+  // マップ情報更新
+  const m = maps[state.currentMap];
+  document.getElementById("mapEN").textContent = m.en;
+  document.getElementById("mapBattles").textContent = m.b;
+  
+  calculate();
 }
 
-function calculate(){
-let before=parseInt(beforeEN.value)||0;
-let after=parseInt(afterEN.value)||0;
-let used=Math.max(before-after,0);
-usedEN.textContent=used;
-
-let gained=state.counts.blue*20+state.counts.purple*50+state.counts.gold*100;
-gainedEN.textContent=gained;
-balance.textContent=gained-used;
+function createMapButtons() {
+  const mapsDiv = document.getElementById("maps");
+  for (let i = 1; i <= 6; i++) {
+    let btn = document.createElement("button");
+    btn.textContent = `海域${i}`;
+    btn.id = "mapBtn" + i;
+    btn.className = "map-btn";
+    btn.onclick = () => selectMap(i);
+    mapsDiv.appendChild(btn);
+  }
+  selectMap(state.currentMap);
 }
 
-function addSession(){
-calculate();
-let now=Date.now();
-let recovered=0;
-if(state.lastTime){
-let diff=Math.floor((now-state.lastTime)/60000);
-recovered=Math.floor(diff/10);
-}
-recoveredEN.textContent=recovered;
-
-let log={
-date:new Date().toLocaleString(),
-used:parseInt(usedEN.textContent),
-gained:parseInt(gainedEN.textContent),
-recovered:recovered,
-balance:parseInt(balance.textContent)
-};
-
-state.logs.push(log);
-state.lastTime=now;
-save();
-renderLog();
+function selectMap(i) {
+  state.currentMap = i;
+  document.querySelectorAll(".map-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("mapBtn" + i).classList.add("active");
+  save();
 }
 
-function renderLog(){
-logBody.innerHTML="";
-state.logs.forEach(l=>{
-let row=`<tr>
-<td>${l.date}</td>
-<td>${l.used}</td>
-<td>${l.gained}</td>
-<td>${l.recovered}</td>
-<td>${l.balance}</td>
-</tr>`;
-logBody.innerHTML+=row;
-});
-}
-renderLog();
-
-function clearLog(){
-state.logs=[];
-save();
-renderLog();
+function changeBox(c, v) {
+  state.counts[c] = Math.max(0, state.counts[c] + v);
+  save();
 }
 
-function calculatePossible(){
-if(!state.currentMap)return;
-let en=parseInt(beforeEN.value)||0;
-let m=maps[state.currentMap];
-let runs=Math.floor(en/m.en);
-possibleRuns.textContent=runs;
-totalBattles.textContent=runs*m.b;
+function calculate() {
+  let before = parseInt(document.getElementById("beforeEN").value) || 0;
+  let after = parseInt(document.getElementById("afterEN").value) || 0;
+  let used = Math.max(before - after, 0);
+  document.getElementById("usedEN").textContent = used;
+
+  let gained = state.counts.blue * 20 + state.counts.purple * 50 + state.counts.gold * 100;
+  document.getElementById("gainedEN").textContent = gained;
+  document.getElementById("balance").textContent = gained - used;
+
+  // 可能周回数計算 (現在の所持ENベース)
+  const m = maps[state.currentMap];
+  let currentEn = after + gained; // 残EN + 箱のEN
+  let runs = Math.floor(currentEn / m.en);
+  document.getElementById("possibleRuns").textContent = runs;
+  document.getElementById("totalBattles").textContent = runs * m.b;
+  document.getElementById("flagEXP").textContent = (runs * m.b * m.f).toLocaleString();
+  document.getElementById("otherEXP").textContent = (runs * m.b * m.o).toLocaleString();
 }
 
-beforeEN.addEventListener("input",calculatePossible);
+function addSession() {
+  let used = parseInt(document.getElementById("usedEN").textContent);
+  let gained = state.counts.blue * 20 + state.counts.purple * 50 + state.counts.gold * 100;
 
-let chart;
-function showGraph(){
-let labels=state.logs.map((_,i)=>i+1);
-let usedData=state.logs.map(l=>l.used);
-let gainedData=state.logs.map(l=>l.gained);
+  state.totalUsed += used;
+  state.totalGained += gained;
+  state.totalBalance += (gained - used);
 
-if(chart) chart.destroy();
-chart=new Chart(document.getElementById("chart"),{
-type:"line",
-data:{
-labels:labels,
-datasets:[
-{label:"消費EN",data:usedData,borderColor:"red"},
-{label:"獲得EN",data:gainedData,borderColor:"blue"}
-]
-}
-});
+  // 日別統計
+  let today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+  if (!state.dailyStats[today]) state.dailyStats[today] = { used: 0, gained: 0 };
+  state.dailyStats[today].used += used;
+  state.dailyStats[today].gained += gained;
+
+  // 記録後は箱を0に戻す（任意）
+  state.counts = { blue: 0, purple: 0, gold: 0 };
+  
+  save();
+  renderChart();
+  alert("記録しました！");
 }
 
-if(state.currentMap)selectMap(state.currentMap);
-for(let c in state.counts){
-document.getElementById(c).textContent=state.counts[c];
+function renderChart() {
+  const ctx = document.getElementById('enChart').getContext('2d');
+  const labels = Object.keys(state.dailyStats).sort();
+  const usedData = labels.map(d => state.dailyStats[d].used);
+  const gainedData = labels.map(d => state.dailyStats[d].gained);
+
+  if (myChart) myChart.destroy();
+
+  myChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: '消費EN', data: usedData, backgroundColor: 'rgba(255, 99, 132, 0.5)' },
+        { label: '獲得EN', data: gainedData, backgroundColor: 'rgba(54, 162, 235, 0.5)' }
+      ]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
 }
+
+function resetAll() {
+  if (confirm("全てのデータをリセットしますか？")) {
+    localStorage.removeItem("enMerged");
+    location.reload();
+  }
+}
+
+// 初期化
+createMapButtons();
+updateDisplay();
+renderChart();
 </script>
 
 </body>
