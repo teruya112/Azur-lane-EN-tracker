@@ -1,156 +1,161 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>アズレンENトラッカー (周回＋箱計算)</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #eceff1; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        h3 { border-left: 5px solid #3498db; padding-left: 10px; margin-top: 0; }
-        input { width: 100%; box-sizing: border-box; padding: 10px; margin: 8px 0; border: 1px solid #cfd8dc; border-radius: 6px; }
-        button { padding: 10px 15px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 6px; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #2980b9; }
-        
-        /* 箱ボタン用スタイル */
-        .box-btn { width: 30%; margin: 1%; font-size: 0.9rem; }
-        .box-blue { background: #3498db; }
-        .box-purple { background: #9b59b6; }
-        .box-gold { background: #f1c40f; color: #333; }
-
-        .calc-result { background: #e8f4fd; padding: 15px; border-radius: 6px; margin-top: 10px; text-align: center; }
-        .result-val { font-size: 1.5rem; color: #e74c3c; font-weight: bold; }
-    </style>
+<meta charset="UTF-8">
+<title>セイレーン作戦 ENダッシュボード</title>
+<style>
+body { font-family: Arial; text-align:center; margin:20px;}
+button { padding:6px 10px; margin:4px;}
+.map-btn { background:#eee; }
+.map-btn.active { background:#4CAF50; color:white; font-weight:bold;}
+.box { margin:8px;}
+.result { margin-top:10px; font-size:16px;}
+</style>
 </head>
 <body>
 
-    <h2>⚓ アズレンENトラッカー</h2>
+<h2>セイレーン作戦 ENダッシュボード</h2>
 
-    <div class="grid">
-        <div class="card">
-            <h3>🏃 周回消費計算</h3>
-            <label>周回前のEN</label>
-            <input type="number" id="startEN" placeholder="例: 15000" oninput="calculateDiff()">
-            <label>周回後のEN</label>
-            <input type="number" id="endEN" placeholder="例: 13200" oninput="calculateDiff()">
-            
-            <div class="calc-result">
-                今回消費：<span id="diffDisplay" class="result-val">0</span> EN<br>
-                <button style="margin-top:10px; background:#27ae60; width:100%;" onclick="applyToSpent()">消費合計に加算</button>
-            </div>
-        </div>
+<h3>▼ マップ選択</h3>
+<div id="maps"></div>
 
-        <div class="card">
-            <h3>📦 獲得EN (箱計算)</h3>
-            <p>タップして獲得したENを追加</p>
-            <button class="box-btn box-blue" onclick="addBox(20)">青(+20)</button>
-            <button class="box-btn box-purple" onclick="addBox(50)">紫(+50)</button>
-            <button class="box-btn box-gold" onclick="addBox(100)">金(+100)</button>
-            
-            <div class="calc-result" style="background:#e8f8f5;">
-                獲得合計：<span id="boxEarnedDisplay" class="result-val" style="color:#27ae60;">0</span> EN<br>
-                <button style="margin-top:10px; background:#27ae60; width:100%;" onclick="applyToEarned()">獲得合計に加算</button>
-            </div>
-        </div>
-    </div>
+<div class="result">
+消費EN/周: <span id="mapEN">-</span>　
+戦闘数: <span id="mapBattles">-</span>
+</div>
 
-    <div class="card">
-        <h3>📝 今日の合計記録</h3>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <input type="date" id="dateInput">
-            <input type="number" id="earnedInput" placeholder="本日の獲得合計">
-            <input type="number" id="spentInput" placeholder="本日の消費合計">
-            <button style="width: 200px; height:45px;" onclick="addLog()">保存</button>
-        </div>
-    </div>
+<h3>▼ 周回EN入力</h3>
+周回前EN: <input type="number" id="beforeEN" value="0"><br>
+周回後EN: <input type="number" id="afterEN" value="0"><br>
 
-    <div class="card">
-        <h3>📊 EN推移レポート</h3>
-        <canvas id="enChart"></canvas>
-    </div>
+<div class="result">
+消費EN: <span id="usedEN">0</span><br>
+自然回復EN: <span id="recoveredEN">0</span>
+</div>
 
-    <script>
-        let db = JSON.parse(localStorage.getItem('azur_en_data')) || { logs: [], goal: 0 };
-        let currentBoxEarned = 0;
+<h3>▼ EN箱</h3>
+<div class="box">水色(20)
+<button onclick="changeBox('blue',-1)">-</button>
+<span id="blue">0</span>
+<button onclick="changeBox('blue',1)">+</button>
+</div>
+<div class="box">紫(50)
+<button onclick="changeBox('purple',-1)">-</button>
+<span id="purple">0</span>
+<button onclick="changeBox('purple',1)">+</button>
+</div>
+<div class="box">金(100)
+<button onclick="changeBox('gold',-1)">-</button>
+<span id="gold">0</span>
+<button onclick="changeBox('gold',1)">+</button>
+</div>
 
-        // 周回計算ロジック
-        function calculateDiff() {
-            const start = parseInt(document.getElementById('startEN').value) || 0;
-            const end = parseInt(document.getElementById('endEN').value) || 0;
-            const diff = Math.max(0, start - end);
-            document.getElementById('diffDisplay').innerText = diff;
-        }
+<div class="result">
+箱獲得EN: <span id="gainedEN">0</span><br>
+今回収支: <span id="balance">0</span>
+</div>
 
-        // 箱追加ロジック (NEW!)
-        function addBox(amount) {
-            currentBoxEarned += amount;
-            document.getElementById('boxEarnedDisplay').innerText = currentBoxEarned;
-        }
+<button onclick="addSession()">累計に追加</button>
 
-        // 消費を合計に加算
-        function applyToSpent() {
-            const diff = parseInt(document.getElementById('diffDisplay').innerText) || 0;
-            const spentInput = document.getElementById('spentInput');
-            spentInput.value = (parseInt(spentInput.value) || 0) + diff;
-            
-            // 周回計算機をリセット
-            document.getElementById('startEN').value = document.getElementById('endEN').value;
-            document.getElementById('endEN').value = "";
-            document.getElementById('diffDisplay').innerText = "0";
-        }
+<h3>▼ 周回可能数</h3>
+<div class="result">
+可能周回数: <span id="possibleRuns">0</span><br>
+総戦闘数: <span id="totalBattles">0</span><br>
+旗艦EXP合計: <span id="flagEXP">0</span><br>
+他EXP合計: <span id="otherEXP">0</span>
+</div>
 
-        // 獲得を合計に加算 (NEW!)
-        function applyToEarned() {
-            const earnedInput = document.getElementById('earnedInput');
-            earnedInput.value = (parseInt(earnedInput.value) || 0) + currentBoxEarned;
-            
-            // 箱計算機をリセット
-            currentBoxEarned = 0;
-            document.getElementById('boxEarnedDisplay').innerText = "0";
-        }
+<script>
+const maps = {
+1:{en:5,b:2,f:431,o:240},
+2:{en:10,b:2,f:540,o:300},
+3:{en:15,b:2,f:647,o:360},
+4:{en:20,b:5,f:755,o:420},
+5:{en:25,b:7,f:863,o:480},
+6:{en:30,b:7,f:971,o:540}
+};
 
-        function addLog() {
-            const date = document.getElementById('dateInput').value;
-            if(!date) return alert("日付を選択してください");
+let state = JSON.parse(localStorage.getItem("enData")) || {
+counts:{blue:0,purple:0,gold:0},
+totalUsed:0,totalGained:0,totalBalance:0,
+lastTime:null,currentMap:null
+};
 
-            const entry = {
-                date: date,
-                earned: parseInt(document.getElementById('earnedInput').value) || 0,
-                spent: parseInt(document.getElementById('spentInput').value) || 0
-            };
+function save(){ localStorage.setItem("enData",JSON.stringify(state)); }
 
-            const existingIdx = db.logs.findIndex(l => l.date === date);
-            if(existingIdx >= 0) db.logs[existingIdx] = entry;
-            else db.logs.push(entry);
+function createMapButtons(){
+for(let i=1;i<=6;i++){
+let btn=document.createElement("button");
+btn.textContent="周回"+i;
+btn.id="map"+i;
+btn.className="map-btn";
+btn.onclick=()=>selectMap(i);
+document.getElementById("maps").appendChild(btn);
+}
+}
+createMapButtons();
 
-            db.logs.sort((a, b) => new Date(a.date) - new Date(b.date));
-            saveAndRefresh();
-        }
+function selectMap(i){
+state.currentMap=i;
+document.querySelectorAll(".map-btn").forEach(b=>b.classList.remove("active"));
+document.getElementById("map"+i).classList.add("active");
+document.getElementById("mapEN").textContent=maps[i].en;
+document.getElementById("mapBattles").textContent=maps[i].b;
+calculatePossible();
+save();
+}
 
-        function saveAndRefresh() {
-            localStorage.setItem('azur_en_data', JSON.stringify(db));
-            updateUI();
-        }
+function changeBox(c,v){
+state.counts[c]+=v;
+if(state.counts[c]<0) state.counts[c]=0;
+document.getElementById(c).textContent=state.counts[c];
+calculate();
+save();
+}
 
-        let myChart;
-        function updateUI() {
-            const ctx = document.getElementById('enChart').getContext('2d');
-            if (myChart) myChart.destroy();
-            myChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: db.logs.map(l => l.date),
-                    datasets: [
-                        { label: '獲得EN', data: db.logs.map(l => l.earned), borderColor: '#2ecc71', tension: 0.3 },
-                        { label: '消費EN', data: db.logs.map(l => l.spent), borderColor: '#e74c3c', tension: 0.3 }
-                    ]
-                }
-            });
-        }
+function calculate(){
+let before=parseInt(beforeEN.value)||0;
+let after=parseInt(afterEN.value)||0;
+let used=Math.max(before-after,0);
+usedEN.textContent=used;
 
-        document.getElementById('dateInput').valueAsDate = new Date();
-        updateUI();
-    </script>
+let gained=state.counts.blue*20+state.counts.purple*50+state.counts.gold*100;
+gainedEN.textContent=gained;
+
+balance.textContent=gained-used;
+}
+
+function addSession(){
+calculate();
+let now=Date.now();
+let recovered=0;
+if(state.lastTime){
+let diff=Math.floor((now-state.lastTime)/60000);
+recovered=Math.floor(diff/10);
+}
+recoveredEN.textContent=recovered;
+state.lastTime=now;
+save();
+}
+
+function calculatePossible(){
+if(!state.currentMap) return;
+let en=parseInt(beforeEN.value)||0;
+let m=maps[state.currentMap];
+let runs=Math.floor(en/m.en);
+possibleRuns.textContent=runs;
+totalBattles.textContent=runs*m.b;
+flagEXP.textContent=runs*m.f;
+otherEXP.textContent=runs*m.o;
+}
+
+beforeEN.addEventListener("input",calculatePossible);
+
+if(state.currentMap) selectMap(state.currentMap);
+for(let c in state.counts){
+document.getElementById(c).textContent=state.counts[c];
+}
+</script>
+
 </body>
 </html>
