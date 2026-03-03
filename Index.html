@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>セイレーン作戦 ENダッシュボード</title>
+<style>
+body { font-family: Arial; text-align:center; margin:20px;}
+button { padding:6px 10px; margin:4px;}
+.map-btn { background:#eee; }
+.map-btn.active { background:#4CAF50; color:white; font-weight:bold;}
+.box { margin:8px;}
+.result { margin-top:10px; font-size:16px;}
+</style>
+</head>
+<body>
+
+<h2>セイレーン作戦 ENダッシュボード</h2>
+
+<h3>▼ マップ選択</h3>
+<div id="maps"></div>
+
+<div class="result">
+消費EN/周: <span id="mapEN">-</span>　
+戦闘数: <span id="mapBattles">-</span>
+</div>
+
+<h3>▼ 周回EN入力</h3>
+周回前EN: <input type="number" id="beforeEN" value="0"><br>
+周回後EN: <input type="number" id="afterEN" value="0"><br>
+
+<div class="result">
+消費EN: <span id="usedEN">0</span><br>
+自然回復EN: <span id="recoveredEN">0</span>
+</div>
+
+<h3>▼ EN箱</h3>
+<div class="box">水色(20)
+<button onclick="changeBox('blue',-1)">-</button>
+<span id="blue">0</span>
+<button onclick="changeBox('blue',1)">+</button>
+</div>
+<div class="box">紫(50)
+<button onclick="changeBox('purple',-1)">-</button>
+<span id="purple">0</span>
+<button onclick="changeBox('purple',1)">+</button>
+</div>
+<div class="box">金(100)
+<button onclick="changeBox('gold',-1)">-</button>
+<span id="gold">0</span>
+<button onclick="changeBox('gold',1)">+</button>
+</div>
+
+<div class="result">
+箱獲得EN: <span id="gainedEN">0</span><br>
+今回収支: <span id="balance">0</span>
+</div>
+
+<button onclick="addSession()">累計に追加</button>
+
+<h3>▼ 周回可能数</h3>
+<div class="result">
+可能周回数: <span id="possibleRuns">0</span><br>
+総戦闘数: <span id="totalBattles">0</span><br>
+旗艦EXP合計: <span id="flagEXP">0</span><br>
+他EXP合計: <span id="otherEXP">0</span>
+</div>
+
+<script>
+const maps = {
+1:{en:5,b:2,f:431,o:240},
+2:{en:10,b:2,f:540,o:300},
+3:{en:15,b:2,f:647,o:360},
+4:{en:20,b:5,f:755,o:420},
+5:{en:25,b:7,f:863,o:480},
+6:{en:30,b:7,f:971,o:540}
+};
+
+let state = JSON.parse(localStorage.getItem("enData")) || {
+counts:{blue:0,purple:0,gold:0},
+totalUsed:0,totalGained:0,totalBalance:0,
+lastTime:null,currentMap:null
+};
+
+function save(){ localStorage.setItem("enData",JSON.stringify(state)); }
+
+function createMapButtons(){
+for(let i=1;i<=6;i++){
+let btn=document.createElement("button");
+btn.textContent="周回"+i;
+btn.id="map"+i;
+btn.className="map-btn";
+btn.onclick=()=>selectMap(i);
+document.getElementById("maps").appendChild(btn);
+}
+}
+createMapButtons();
+
+function selectMap(i){
+state.currentMap=i;
+document.querySelectorAll(".map-btn").forEach(b=>b.classList.remove("active"));
+document.getElementById("map"+i).classList.add("active");
+document.getElementById("mapEN").textContent=maps[i].en;
+document.getElementById("mapBattles").textContent=maps[i].b;
+calculatePossible();
+save();
+}
+
+function changeBox(c,v){
+state.counts[c]+=v;
+if(state.counts[c]<0) state.counts[c]=0;
+document.getElementById(c).textContent=state.counts[c];
+calculate();
+save();
+}
+
+function calculate(){
+let before=parseInt(beforeEN.value)||0;
+let after=parseInt(afterEN.value)||0;
+let used=Math.max(before-after,0);
+usedEN.textContent=used;
+
+let gained=state.counts.blue*20+state.counts.purple*50+state.counts.gold*100;
+gainedEN.textContent=gained;
+
+balance.textContent=gained-used;
+}
+
+function addSession(){
+calculate();
+let now=Date.now();
+let recovered=0;
+if(state.lastTime){
+let diff=Math.floor((now-state.lastTime)/60000);
+recovered=Math.floor(diff/10);
+}
+recoveredEN.textContent=recovered;
+state.lastTime=now;
+save();
+}
+
+function calculatePossible(){
+if(!state.currentMap) return;
+let en=parseInt(beforeEN.value)||0;
+let m=maps[state.currentMap];
+let runs=Math.floor(en/m.en);
+possibleRuns.textContent=runs;
+totalBattles.textContent=runs*m.b;
+flagEXP.textContent=runs*m.f;
+otherEXP.textContent=runs*m.o;
+}
+
+beforeEN.addEventListener("input",calculatePossible);
+
+if(state.currentMap) selectMap(state.currentMap);
+for(let c in state.counts){
+document.getElementById(c).textContent=state.counts[c];
+}
+</script>
+
+</body>
+</html>
